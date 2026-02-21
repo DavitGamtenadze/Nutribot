@@ -1,8 +1,8 @@
 # NutriBot
 
-NutriBot is an end-to-end LLM-powered nutrition coaching application that combines
+[NutriBot](https://nutribot-frontend.vercel.app) is an end-to-end LLM-powered nutrition coaching application that combines
 **structured output**, **tool calling**, and **multi-turn conversation** to deliver
-personalised, evidence-based dietary guidance.
+personalised, evidence-based dietary guidance. Website is this 
 
 ## What It Does
 
