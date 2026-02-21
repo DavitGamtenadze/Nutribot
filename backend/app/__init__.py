@@ -1,0 +1,1 @@
+"""Nutribot backend package."""
