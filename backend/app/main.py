@@ -36,6 +36,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# StaticFiles validates the directory at import time, so this must exist
+# before mounting on serverless cold starts.
+os.makedirs(settings.upload_dir, exist_ok=True)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_origin],

@@ -1,6 +1,7 @@
+import os
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +34,16 @@ class Settings(BaseSettings):
     ncbi_email: str = Field(default="maintainer@example.com")
     pubmed_esearch_url: str = Field(default="https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi")
     pubmed_esummary_url: str = Field(default="https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi")
+
+    @model_validator(mode="after")
+    def apply_vercel_defaults(self) -> "Settings":
+        # Vercel serverless functions can only write under /tmp.
+        if os.getenv("VERCEL") == "1":
+            if self.database_url == "sqlite:///nutribot.db":
+                self.database_url = "sqlite:////tmp/nutribot.db"
+            if self.upload_dir == "uploads":
+                self.upload_dir = "/tmp/uploads"
+        return self
 
 
 @lru_cache(maxsize=1)
