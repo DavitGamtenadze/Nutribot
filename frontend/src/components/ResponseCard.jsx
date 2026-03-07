@@ -43,7 +43,7 @@ function PriorityCard({ item }) {
   )
 }
 
-export default function ResponseCard({ response, conversationId, error, loading }) {
+export default function ResponseCard({ response, conversationId, error, loading, onFollowUpClick }) {
   return (
     <div className="plan-column">
       <div className="plan-header">
@@ -107,11 +107,20 @@ export default function ResponseCard({ response, conversationId, error, loading 
             </div>
 
             <div className="plan-section-title">Follow-up Questions</div>
-            <div className="plan-list-section">
-              <ul>
-                {response.follow_up_questions.map((item, i) => <li key={i}>{item}</li>)}
-                {!response.follow_up_questions.length && <li>No follow-up questions.</li>}
-              </ul>
+            <div className="plan-list-section followup-list">
+              {response.follow_up_questions.map((item, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className="followup-chip"
+                  onClick={() => onFollowUpClick?.(item)}
+                >
+                  {item}
+                </button>
+              ))}
+              {!response.follow_up_questions.length && (
+                <p className="empty-note">No follow-up questions.</p>
+              )}
             </div>
 
             <p className="plan-disclaimer">{response.disclaimer}</p>

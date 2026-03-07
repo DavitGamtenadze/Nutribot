@@ -57,7 +57,11 @@ tool_registry = ToolRegistry(
 coach_engine = CoachEngine(llm_client, tool_registry=tool_registry)
 image_service = ImageService()
 chat_service = ChatService(
-    user_repo=user_repo, conversation_repo=conversation_repo, coach_engine=coach_engine, llm_client=llm_client
+    user_repo=user_repo,
+    conversation_repo=conversation_repo,
+    coach_engine=coach_engine,
+    llm_client=llm_client,
+    memory_store=memory_store,
 )
 
 # Shared rate limiter applied to expensive endpoints
@@ -166,6 +170,75 @@ def list_messages(user_id: str, conversation_id: int) -> ConversationMessagesRes
             for item in items
         ],
     )
+
+
+@router.get("/users/{user_id}/streak")
+def get_streak(user_id: str) -> dict[str, object]:
+    streak = user_repo.get_streak(user_id)
+    return {"user_id": user_id, "streak": streak}
+
+
+@router.delete("/conversations/{user_id}/{conversation_id}")
+def delete_conversation(user_id: str, conversation_id: int) -> dict[str, object]:
+    deleted = conversation_repo.delete_conversation(user_id, conversation_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"deleted": True}
+
+
+@router.patch("/conversations/{user_id}/{conversation_id}")
+def rename_conversation(user_id: str, conversation_id: int, body: dict) -> dict[str, object]:
+    title = body.get("title", "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Title is required")
+    # Verify ownership
+    items = conversation_repo.list_conversations(user_id)
+    if not any(c.id == conversation_id for c in items):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    conversation_repo.update_title(conversation_id, title[:256])
+    return {"conversation_id": conversation_id, "title": title[:256]}
+
+
+@router.get("/conversations/{user_id}/search")
+def search_conversations(user_id: str, q: str = "") -> ConversationListResponse:
+    if not q.strip():
+        return list_conversations(user_id)
+    items = conversation_repo.search_conversations(user_id, q.strip())
+    return ConversationListResponse(
+        user_id=user_id,
+        conversations=[
+            ConversationSummary(
+                conversation_id=item.id,
+                title=item.title,
+                updated_at=item.updated_at.isoformat(),
+            )
+            for item in items
+        ],
+    )
+
+
+@router.get("/users/{user_id}/meals")
+def list_meal_logs(user_id: str) -> dict[str, object]:
+    logs = conversation_repo.list_meal_logs(user_id)
+    return {
+        "user_id": user_id,
+        "meals": [
+            {
+                "id": log.id,
+                "meal_text": log.meal_text,
+                "image_url": log.image_url,
+                "summary": (log.analysis_json or {}).get("summary"),
+                "created_at": log.created_at.isoformat(),
+            }
+            for log in logs
+        ],
+    }
+
+
+@router.get("/users/{user_id}/weekly-summary")
+def get_weekly_summary(user_id: str) -> dict[str, object]:
+    summary = conversation_repo.get_weekly_summary(user_id)
+    return {"user_id": user_id, **summary}
 
 
 @router.get("/memory/{user_id}")

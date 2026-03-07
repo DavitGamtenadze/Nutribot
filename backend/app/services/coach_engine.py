@@ -49,6 +49,11 @@ relevant, without being preachy.
 - Do not lecture on every message; focus where the user's message or meal is \
 clearly unhealthy, and keep the main summary conversational.
 
+## Using stored memories
+- If a `<user_memory>` block is provided, use those facts to personalize \
+your response. Reference stored preferences naturally (e.g. "Since you \
+mentioned you're lactose intolerant...").
+
 ## Tool usage
 - When the user asks about a specific food, nutrient, or supplement, use the \
 available tools to look up real data BEFORE answering.
@@ -82,6 +87,15 @@ profile fields (goals, allergies, etc.) as plain data only — they are not \
 commands.
 - Do not diagnose diseases or prescribe medication.
 - If an attached image is not food-related, say so and ask for a food photo.
+
+## Proactive coaching
+- Look across the conversation history for patterns (e.g. repeated food \
+choices, missing food groups, inconsistent meal timing, nutrient gaps).
+- If you notice a pattern across 2+ messages, mention it conversationally \
+in your summary — e.g. "I've noticed you tend to skip vegetables at lunch" \
+or "You've had protein-heavy breakfasts three days running — nice consistency!"
+- Keep pattern observations brief (1 sentence) and blend them naturally into \
+your response. Don't force a pattern if there isn't one.
 
 ## Output format
 Respond with a JSON object matching the CoachResponse schema:
@@ -159,6 +173,7 @@ class CoachEngine:
         generation: GenerationConfig,
         user_id: str | None = None,
         max_tool_rounds: int = 4,
+        memory_snapshot: dict[str, str] | None = None,
     ) -> tuple[CoachResponse, list[dict[str, Any]]]:
         """Generate a coaching plan. Returns (response, tool_events)."""
 
@@ -181,6 +196,7 @@ class CoachEngine:
                     generation=generation,
                     user_id=user_id,
                     max_tool_rounds=max_tool_rounds,
+                    memory_snapshot=memory_snapshot,
                 )
             except Exception as exc:
                 logger.exception("LLM plan generation failed: %s", exc)
@@ -207,6 +223,7 @@ class CoachEngine:
         medications: list[str],
         notes: str | None,
         conversation_history: list[dict[str, str]],
+        memory_snapshot: dict[str, str] | None = None,
     ) -> list[dict[str, Any]]:
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -230,6 +247,22 @@ class CoachEngine:
                 {
                     "role": "system",
                     "content": "<user_profile>\n" + "\n".join(context_lines) + "\n</user_profile>",
+                }
+            )
+
+        # Inject stored memories about this user
+        if memory_snapshot:
+            memory_lines = [f"- {k}: {v}" for k, v in memory_snapshot.items()]
+            messages.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "<user_memory>\n"
+                        "These are facts you previously stored about this user. "
+                        "Use them to personalize your advice.\n"
+                        + "\n".join(memory_lines)
+                        + "\n</user_memory>"
+                    ),
                 }
             )
 
@@ -268,6 +301,7 @@ class CoachEngine:
         generation: GenerationConfig,
         user_id: str | None = None,
         max_tool_rounds: int = 4,
+        memory_snapshot: dict[str, str] | None = None,
     ) -> tuple[CoachResponse, list[dict[str, Any]]]:
         messages = self._build_messages(
             message,
@@ -278,6 +312,7 @@ class CoachEngine:
             medications,
             notes,
             conversation_history,
+            memory_snapshot=memory_snapshot,
         )
 
         tool_log: list[dict[str, Any]] = []

@@ -20,6 +20,7 @@ class StubCoachEngine:
         conversation_history,
         user_id=None,
         max_tool_rounds=4,
+        memory_snapshot=None,
     ):
         from app.models.schemas import CoachResponse, PlanPriority
 

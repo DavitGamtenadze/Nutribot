@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
 
 const MAX_MESSAGE_LENGTH = 4000
 
@@ -25,6 +26,13 @@ const SpinnerIcon = () => (
   </span>
 )
 
+const STARTER_PROMPTS = [
+  "I had eggs and toast for breakfast",
+  "What should I eat for muscle gain?",
+  "How much protein do I need daily?",
+  "Rate my lunch: grilled chicken salad",
+]
+
 export default function ConversationPanel({
   conversations,
   activeConversationId,
@@ -40,6 +48,8 @@ export default function ConversationPanel({
   loading,
   nightMode,
   setNightMode,
+  activeTab,
+  setActiveTab,
 }) {
   const fileInputRef = useRef(null)
   const messagesEndRef = useRef(null)
@@ -65,6 +75,12 @@ export default function ConversationPanel({
       <div className="chat-header">
         <h2>Coach Chat</h2>
         <div className="chat-header-actions">
+          {setActiveTab && (
+            <div className="tab-toggle">
+              <button type="button" className={`tab-btn ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}>Chat</button>
+              <button type="button" className={`tab-btn ${activeTab === 'diary' ? 'active' : ''}`} onClick={() => setActiveTab('diary')}>Diary</button>
+            </div>
+          )}
           <button type="button" className="ghost-btn" onClick={onNewConversation}>
             + New thread
           </button>
@@ -92,7 +108,13 @@ export default function ConversationPanel({
             className={entry.role === 'assistant' ? 'assistant-bubble' : 'user-bubble'}
           >
             <div className="bubble-role">{entry.role === 'assistant' ? 'Coach' : 'You'}</div>
-            <div className="bubble-text">{entry.content}</div>
+            <div className="bubble-text">
+              {entry.role === 'assistant' ? (
+                <ReactMarkdown>{entry.content}</ReactMarkdown>
+              ) : (
+                entry.content
+              )}
+            </div>
             {entry.image_url && (
               <img
                 src={
@@ -106,9 +128,33 @@ export default function ConversationPanel({
             )}
           </li>
         ))}
-        {!messages.length && (
-          <li className="empty-note">
-            Tell the coach what you ate and your current goal.
+        {!messages.length && !loading && (
+          <li className="starter-prompts">
+            <p className="starter-label">Get started with a prompt:</p>
+            <div className="starter-grid">
+              {STARTER_PROMPTS.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  className="starter-chip"
+                  onClick={() => {
+                    setMessage(prompt)
+                  }}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </li>
+        )}
+        {loading && (
+          <li className="assistant-bubble typing-bubble">
+            <div className="bubble-role">Coach</div>
+            <div className="typing-dots">
+              <span />
+              <span />
+              <span />
+            </div>
           </li>
         )}
         <div ref={messagesEndRef} />

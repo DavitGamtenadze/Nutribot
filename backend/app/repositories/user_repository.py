@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from datetime import UTC, date, datetime, timedelta
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.db.models import User, UserProfile
+from app.db.models import Message, User, UserProfile
 
 
 class UserRepository:
@@ -80,6 +82,31 @@ class UserRepository:
             session.commit()
             session.refresh(profile)
             return profile
+
+    def get_streak(self, external_id: str) -> int:
+        """Count consecutive days (backwards from today) with at least one user message."""
+        with self._session_factory() as session:
+            user = session.scalar(select(User).where(User.external_id == external_id))
+            if not user:
+                return 0
+
+            rows = session.execute(
+                select(func.date(Message.created_at).label("d"))
+                .where(Message.user_id == user.id, Message.role == "user")
+                .group_by(func.date(Message.created_at))
+                .order_by(func.date(Message.created_at).desc())
+            ).all()
+
+            if not rows:
+                return 0
+
+            active_dates = {str(row.d) for row in rows}
+            streak = 0
+            day = date.today()
+            while str(day) in active_dates:
+                streak += 1
+                day -= timedelta(days=1)
+            return streak
 
     def ensure_profile(self, external_id: str, display_name: str | None = None) -> UserProfile:
         with self._session_factory() as session:
