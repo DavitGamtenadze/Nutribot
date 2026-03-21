@@ -303,6 +303,24 @@ export default function App() {
 
     setLoadingResponse(true)
     setError('')
+
+    // Capture message before clearing — prevents loss on API failure
+    const sentText = (message && message.trim().slice(0, 4000)) || null
+    const sentImagePreview = imagePreview
+
+    // Optimistic update: show user's message in chat immediately
+    if (sentText || imageFile) {
+      const optimisticMsg = {
+        message_id: `temp-${Date.now()}`,
+        role: 'user',
+        content: sentText || '',
+        image_url: sentImagePreview || null,
+      }
+      setMessages((prev) => [...prev, optimisticMsg])
+      setMessage('')
+      onImageClear()
+    }
+
     try {
       let uploadedImageUrl = null
 
@@ -319,12 +337,11 @@ export default function App() {
         }
       }
 
-      const trimmedMessage = (message && message.trim().slice(0, 4000)) || null;
       const payload = {
         user_id: userId,
         user_name: userName || null,
         conversation_id: activeConversationId,
-        message: trimmedMessage,
+        message: sentText,
         image_url: uploadedImageUrl,
         goals: profileForm.goals,
         dietary_preferences: profileForm.dietary_preferences,
@@ -340,7 +357,7 @@ export default function App() {
       if (!res.ok) {
         const body = await res.json().catch(() => ({ detail: 'Unknown API error' }))
         const detail = body.detail
-        const message =
+        const errorMessage =
           typeof detail === 'string'
             ? detail
             : Array.isArray(detail)
@@ -348,18 +365,20 @@ export default function App() {
               : detail && typeof detail === 'object'
                 ? detail.msg || detail.message || JSON.stringify(detail)
                 : `Failed to generate plan (${res.status})`
-        throw new Error(message || `Failed to generate plan (${res.status})`)
+        throw new Error(errorMessage || `Failed to generate plan (${res.status})`)
       }
 
       const data = await res.json()
       setActiveConversationId(data.conversation_id)
       setCoachPlan(data.response)
-      setMessage('')
-      onImageClear()
 
       await Promise.all([loadConversations(), loadMessages(data.conversation_id), loadStreak()])
     } catch (err) {
       setError(err.message)
+      // Restore message so the user doesn't lose their input on error
+      if (sentText) setMessage(sentText)
+      // Remove optimistic message on failure
+      setMessages((prev) => prev.filter((m) => !String(m.message_id).startsWith('temp-')))
     } finally {
       setLoadingResponse(false)
     }
